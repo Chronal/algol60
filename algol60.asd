@@ -8,7 +8,7 @@
   :serial t
   :depends-on (#:alexandria #:clingon #:iterate)
   :components ((:file "package")
-               (:file "algol60")
+               (:file "utils")
                (:file "lexer")
                (:file "parser")
-               (:file "utils")))
+               (:file "algol60")))

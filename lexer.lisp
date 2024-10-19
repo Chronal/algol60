@@ -2,24 +2,116 @@
 
 (defvar *file-name* #p"./example-programs/e_approx.algol")
 
-(defvar *tokens* (make-array 256 :fill-pointer 0 :adjustable t))
-(defvar *line-no* 0)
-(defvar *col-no* 0)
-(defvar *file-index* 0)
-(defvar *file-data* nil)
-
 ;; Use underscore as the strop char
-(defparameter *strop-character* #\_)
+(defparameter *strop-char* #\_)
 
-(defun make-token-array (&key (size 256))
-  (make-array size :fill-pointer 0 :adjustable t))
+;;;; Core class driving the lexing
+;;;; Ideally later it can be configurable
+;;;; to support different strop chars/parens/brackets
+(defclass lexer ()
+  ((line-num :initform 0)
+   (column  :initform 0)
+   (index :initform 0)
+   (data :initarg :source
+         :initform (error "Must source code to process"))
+   file-len
+   (finished :initform nil :reader lex-finished?)
+   (tokens :initform (make-token-array))))
 
-(defun trim-ident (ident)
-  (string-trim '(#\NewLine
-                 #\Space
-                 #\Tab) ident))
+(defun make-lexer (source-code)
+  (make-instance 'lexer :source source-code))
 
-;; [A-Za-z]
+(defmethod initialize-instance :after ((lexer lexer) &key)
+  (with-slots (data file-len) lexer
+    (setf file-len (length data))))
+
+(defmethod reset-lexer ((lexer lexer))
+  (with-slots (column index finished
+               line-num tokens) lexer
+    (setf line-num 0)
+    (setf column 0)
+    (setf index 0)
+    (setf finished nil)
+    (setf (fill-pointer tokens) 0)))
+
+(defmethod lex ((L lexer))
+  (with-slots (tokens index) L
+    (loop for c = (current-char L)
+          until (lex-finished? L) do
+            (cond
+              ((alpha? c) (read-variable L))
+              ((comma? c) (push-token L 'comma))
+              ((colon? c) (read-assign-op L))
+              ((strop? c) (read-keyword L))
+              ((semi-colon? c) (push-token L 'semi-colon)))
+            (advance L)
+          finally (return tokens))))
+
+(defmethod read-assign-op ((lexer lexer))
+  (with-slots (line-num column) lexer
+    (cond
+      ((equal-sign? (peek lexer)) (push-token lexer '(op assign)))
+      (t (error "Expected '=' after the ':' ~a:~a~%" line-num column)))))
+
+(defmethod peek((lexer lexer))
+  (with-slots (data index) lexer
+    (when (> (chars-left lexer :lookahead 1) 0)
+      (char data (1+ index)))))
+
+(defmethod push-token ((lexer lexer) tok)
+  (with-slots (tokens) lexer
+    (vector-push-extend tok tokens)))
+
+(defmethod read-variable ((L lexer))
+  (with-slots (data index) L
+    (flet ((read-while-valid-name ()
+             (loop for c = (peek L)
+                   with start = index
+                   while (or (alpha? c)
+                             (digit? c)
+                             (white-space? c)) do
+                               (advance L)
+                   finally
+                      (return (list start (1+ index))))))
+      (destructuring-bind (start end) (read-while-valid-name)
+        (let ((ident (trim-ident (subseq data start end))))
+          (push-token L `(ident ,ident)))))))
+
+(defmethod read-keyword ((L lexer))
+  (with-slots (data index line-num column) L
+    (let* ((next (position *strop-char* data :start (1+ index)))
+           (keyword-candidate (subseq data (1+ index) next))
+           (iters (- next index)))
+      (cond
+        ((valid-stropped-keyword? keyword-candidate)
+         (push-token L `(keyword ,(intern (string-upcase keyword-candidate))))
+         (advance L iters))
+        (t (error "Invalid keyword starting at ~a:~a" line-num column))))))
+
+(defmethod advance ((lexer lexer) &optional (n 1))
+  (dotimes (i n)
+    (with-slots (index column
+                 line-num finished) lexer
+      (when (new-line? (current-char lexer))
+        (incf line-num)
+        (setf column 0))
+      (cond
+        ((> (chars-left lexer) 0)
+         (incf index)
+         (incf line-num))
+        (t
+         (setf finished t))))))
+
+(defmethod chars-left ((lexer lexer) &key (lookahead 0))
+  (with-slots (index data) lexer
+    (- (length data) (+ index lookahead 1))))
+
+(defmethod current-char ((lexer lexer))
+  (with-slots (data index) lexer
+    (char data index)))
+
+;;;; The following functions are just character predicates
+;;;; for the lexer along with some utility functions
 (defun alpha? (char)
   (alpha-char-p char))
 
@@ -53,7 +145,7 @@
   (char= char #\;))
 
 (defun strop? (c)
-  (char= c *strop-character*))
+  (char= c *strop-char*))
 
 (defun white-space? (c)
   (or (char= c #\Newline)
@@ -116,105 +208,10 @@
             ;; Required for exponent syntax
             "10"))))
 
-(defun lex (file-name)
-  (reset-lexer-state)
-  (read-file file-name)
-  (loop for c = (current-char)
-        while (chars-left?) do
-           (cond
-             ((strop? c) (read-keyword))
-             ((alpha? c) (read-variable))
-             ((comma? c) (push-token-adv 'comma))
-             ((semi-colon? c) (push-token-adv 'semi-colon))
-             ((dot? c) (push-token-adv 'dot))
-             ((colon? c) (read-assign-op))
-             ((white-space? c) (next-char))      ;Do nothing
-             (t (next-char)))
-        finally (return *tokens*)))
-
-;; move the cursor forward after pushing the token
-(defun push-token-adv (tok)
-  (push-token tok)
-  (next-char))
-
-(defun read-assign-op ()
-  (let ((next (peek-next)))
-    (cond
-      ((and
-         (not (null next))
-         (char= next #\=))
-        (next-char)
-        (next-char)
-        (push-token '(op assign)))
-      (t (error "Expected = here ~a:~a ~%" *line-no* *col-no*)))))
-
-(defun peek-next ()
-  (when (chars-left? :lookahead 1)
-    (char *file-data* (1+ *file-index*))))
-
-(defun push-token (tok)
-  (vector-push-extend tok *tokens*))
-
-(defun read-variable ()
-  (flet ((read-while-valid-name ()
-           (loop for c = (current-char) then (next-char)
-                 with start = *file-index*
-                 while (or (alpha? c)
-                           (digit? c)
-                           (white-space? c))
-                 finally
-                    (return (list
-                             start *file-index*)))))
-    (destructuring-bind (start end) (read-while-valid-name)
-      (let ((ident (trim-ident (subseq *file-data* start end))))
-        (push-token `(ident ,ident))))))
-
-(defun read-keyword ()
-  (destructuring-bind
-      (start end init-col init-line) (read-til-next-strop)
-    (let ((keyword-candidate (subseq *file-data* start end)))
-      (cond
-        ((valid-stropped-keyword? keyword-candidate)
-         (push-token `(keyword ,(intern (string-upcase keyword-candidate)))))
-        (t (error "Invalid keyword starting at ~a:~a" init-line init-col))))))
-
-
-(defun read-til-next-strop ()
-  (loop for cur-char = (next-char)
-        with start-index = (1+ *file-index*)
-        with init-line = *line-no*
-        with init-col = *col-no*
-        while (not (strop? cur-char))
-
-        finally
-           (next-char) ;;Push past ending stro
-           (return (list start-index (1- *file-index*) init-col init-line))))
-
-(defun next-char ()
-  (when (chars-left?)
-    (incf *file-index*)
-    (incf *col-no*)
-    (when (new-line? (current-char))
-      (incf *line-no*)
-      (setf *col-no* 0))
-    (current-char)))
-
-(defun chars-left? (&key (lookahead 0))
-  (< (+ *file-index* lookahead) (1- (length *file-data*))))
-
-(defun current-char ()
-  (char *file-data* *file-index*))
-
-(defun read-file (file-name)
-  (setf *file-data* (read-file-into-string file-name)))
-
-(defun reset-lexer-state ()
-  (setf *tokens* (make-token-array))
-  (setf *line-no* 0)
-  (setf *col-no* 0)
-  (setf *file-index* 0)
-  (setf *file-data* nil))
-
+(defun trim-ident (ident)
+  (string-trim '(#\NewLine
+                 #\Space
+                 #\Tab) ident))
 
 ;;; Types of Tokens
 ;;; '(ident ...)
@@ -254,3 +251,6 @@
 ;;; 'close_string
 ;;; 'open_block => _begin_
 ;;; 'close_block => _end_
+;; [A-Za-z]
+
+(defvar *lexer* (make-lexer (read-file-into-string *file-name*)))
