@@ -1,4 +1,4 @@
-_begin_ _real_ eprox,term; integer n;
+_begin_ _real_ eprox,term; _integer_ n;
     eprox := term := 1;
     _for_ n := 1 _step_ 1 _until_ 20 _do_
     _begin_ term := term/n;
