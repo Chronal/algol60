@@ -120,18 +120,23 @@
 (defun digit? (char)
   (digit-char-p char 10))
 
-(defun paren? (char)
-  (or (char= #\( char)
-      (char= #\) char)))
+(defun open-paren? (c)
+  (char= #\( c))
 
-(defun square-bracket? (char)
-  (or (char= #\[ char)
-      (char= #\] char)))
+(defun close-paren? (c)
+  (char= #\) c))
 
-;; Maybe change this later to something nicer
-(defun quote-bracket? (char)
-  (or (char= #\{ char)
-      (char= #\} char)))
+(defun open-subscript? (c)
+  (char= #\[ c))
+
+(defun close-subscript? (c)
+  (char= #\] c))
+
+(defun double-quote? (c)
+  (char= #\" c))
+
+(defun single-quote? (c)
+  (char= #\' c))
 
 (defun dot? (char)
   (char= char #\.))
@@ -155,6 +160,21 @@
 
 (defun equal-sign? (c)
   (char= c #\=))
+
+(defun plus? (c)
+  (char= c #\+))
+
+(defun slash? (c)
+  (char= c #\/))
+
+(defun asterisk? (c)
+  (char= c #\*))
+
+(defun dash? (c)
+  (char= c #\-))
+
+(defun caret? (c)
+  (char= c #\^))
 
 (defun less-than-sign? (c)
   (char= c #\<))
