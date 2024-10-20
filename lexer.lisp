@@ -30,86 +30,107 @@
     (with-slots (line-num column index finished) L
         (format stream " ~a:~a, index ~a, finished? ~a" line-num column index finished))))
 
-(defmethod reset-lexer ((lexer lexer))
-  (with-slots (column index finished
-               line-num tokens) lexer
-    (setf line-num 0)
-    (setf column 0)
-    (setf index 0)
-    (setf finished nil)
-    (setf (fill-pointer tokens) 0)))
 
-(defmethod lex ((L lexer))
-  (with-slots (tokens index) L
-    (loop for c = (current-char L)
-          until (lex-finished? L) do
-            (cond
-              ((alpha? c) (read-variable L))
-              ((comma? c) (push-token L 'comma))
-              ((colon? c) (read-assign-op L))
-              ((strop? c) (read-keyword L))
-              ((semi-colon? c) (push-token L 'semi-colon)))
-            (advance L)
-          finally (return tokens))))
+(defmacro define-lex-method (name args &rest body)
+  `(defmethod ,name ((,(first args) lexer) ,@(rest args))
+     (with-slots (data index line-num
+                  column finished
+                  file-len tokens) ,(first args)
+       ,@body)))
 
-(defmethod read-assign-op ((lexer lexer))
-  (with-slots (line-num column) lexer
+(define-lex-method reset-lexer (lexer)
+  (setf line-num 0)
+  (setf column 0)
+  (setf index 0)
+  (setf finished nil)
+  (setf (fill-pointer tokens) 0))
+
+(define-lex-method lex (L)
+  (loop for c = (current-char L)
+        until (lex-finished? L) do
+          (cond
+            ;; long/complex tokens
+            ((alpha? c) (read-variable L))
+            ((digit? c) (read-number L))
+            ((colon? c) (read-assign-op L))
+            ((strop? c) (read-keyword L))
+
+
+            ;; two char tokens
+
+
+            ;; single char tokens
+            ;; brackets
+            ((open-paren? c) (push-token l 'open-paren))
+            ((close-paren? c) (push-token l 'close-paren))
+
+            ((open-subscript? c) (push-token l 'open-subscript))
+            ((close-subscript? c) (push-token l 'close-subscript))
+            ;; operators
+            ((plus? c) (push-token L '(op add)))
+            ((dash? c) (push-token L '(op sub)))
+            ((asterisk? c) (push-token L '(op mul)))
+            ((slash? c) (push-token L '(op div)))
+            ((caret? c) (push-token L '(op pow)))
+
+            ;; separators
+            ((comma? c) (push-token L 'comma))
+            ((semi-colon? c) (push-token L 'semi-colon)))
+          (advance L)
+        finally (return tokens)))
+
+(define-lex-method read-assign-op (lexer)
+  (cond
+    ((equal-sign? (peek lexer)) (push-token lexer '(op assign)))
+    (t (error "Expected '=' after the ':' ~a:~a~%" line-num column))))
+
+(define-lex-method peek (lexer)
+  (when (> (chars-left lexer :lookahead 1) 0)
+    (char data (1+ index))))
+
+(define-lex-method push-token (lexer tok)
+  (vector-push-extend tok tokens))
+
+
+(define-lex-method read-number (lexer))
+
+(define-lex-method read-variable (L)
+  (loop for c = (peek L)
+        with start = index
+        while (or (alpha? c)
+                  (digit? c)
+                  (white-space? c)) do
+                    (advance L)
+        finally
+           (let ((ident (trim-ident (subseq data start (1+ index)))))
+             (push-token L `(ident ,ident)))))
+
+(define-lex-method read-keyword (L)
+  (let* ((next (position *strop-char* data :start (1+ index)))
+         (keyword-candidate (subseq data (1+ index) next))
+         (iters (- next index)))
     (cond
-      ((equal-sign? (peek lexer)) (push-token lexer '(op assign)))
-      (t (error "Expected '=' after the ':' ~a:~a~%" line-num column)))))
+      ((valid-stropped-keyword? keyword-candidate)
+       (push-token L `(keyword ,(intern (string-upcase keyword-candidate))))
+       (advance L iters))
+      (t (error "Invalid keyword starting at ~a:~a" line-num column)))))
 
-(defmethod peek((lexer lexer))
-  (with-slots (data index) lexer
-    (when (> (chars-left lexer :lookahead 1) 0)
-      (char data (1+ index)))))
-
-(defmethod push-token ((lexer lexer) tok)
-  (with-slots (tokens) lexer
-    (vector-push-extend tok tokens)))
-
-(defmethod read-variable ((L lexer))
-  (with-slots (data index) L
-    (loop for c = (peek L)
-          with start = index
-          while (or (alpha? c)
-                    (digit? c)
-                    (white-space? c)) do
-                      (advance L)
-          finally
-             (let ((ident (trim-ident (subseq data start (1+ index)))))
-               (push-token L `(ident ,ident))))))
-
-(defmethod read-keyword ((L lexer))
-  (with-slots (data index line-num column) L
-    (let* ((next (position *strop-char* data :start (1+ index)))
-           (keyword-candidate (subseq data (1+ index) next))
-           (iters (- next index)))
-      (cond
-        ((valid-stropped-keyword? keyword-candidate)
-         (push-token L `(keyword ,(intern (string-upcase keyword-candidate))))
-         (advance L iters))
-        (t (error "Invalid keyword starting at ~a:~a" line-num column))))))
-
-(defmethod advance ((lexer lexer) &optional (n 1))
+(define-lex-method advance (lexer &optional (n 1))
   (dotimes (i n)
-    (with-slots (index column
-                 line-num finished) lexer
-      (when (new-line? (current-char lexer))
-        (incf line-num)
-        (setf column 0))
-      (cond
-        ((> (chars-left lexer) 0)
-         (incf index))
-        (t
-         (setf finished t))))))
+    (when (new-line? (current-char lexer))
+      (incf line-num)
+      (setf column 0))
+    (cond
+      ((> (chars-left lexer) 0)
+       (incf index))
+      (t
+       (setf finished t)))))
 
-(defmethod chars-left ((lexer lexer) &key (lookahead 0))
-  (with-slots (index data) lexer
-    (- (length data) (+ index lookahead 1))))
+(define-lex-method chars-left (lexer &key (lookahead 0))
+  (- (length data) (+ index lookahead 1)))
 
-(defmethod current-char ((lexer lexer))
-  (with-slots (data index) lexer
-    (char data index)))
+(define-lex-method current-char (lexer)
+  (char data index))
 
 ;;;; The following functions are just character predicates
 ;;;; for the lexer along with some utility functions
