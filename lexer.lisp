@@ -25,6 +25,11 @@
   (with-slots (data file-len) lexer
     (setf file-len (length data))))
 
+(defmethod print-object ((L lexer ) stream)
+  (print-unreadable-object (L stream :type t :identity t)
+    (with-slots (line-num column index finished) L
+        (format stream " ~a:~a, index ~a, finished? ~a" line-num column index finished))))
+
 (defmethod reset-lexer ((lexer lexer))
   (with-slots (column index finished
                line-num tokens) lexer
@@ -97,8 +102,7 @@
         (setf column 0))
       (cond
         ((> (chars-left lexer) 0)
-         (incf index)
-         (incf line-num))
+         (incf index))
         (t
          (setf finished t))))))
 
