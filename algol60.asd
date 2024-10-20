@@ -6,7 +6,7 @@
   :license  "AGPL-3.0-or-later"
   :version "0.0.1"
   :serial t
-  :depends-on (#:alexandria #:clingon #:iterate)
+  :depends-on (alexandria clingon iterate)
   :components ((:file "package")
                (:file "utils")
                (:file "lexer")

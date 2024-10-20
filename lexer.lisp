@@ -30,12 +30,10 @@
     (with-slots (line-num column index finished) L
         (format stream " ~a:~a, index ~a, finished? ~a" line-num column index finished))))
 
-
-(defmacro define-lex-method (name args &rest body)
+(defmacro define-lex-method (name args &body body)
   `(defmethod ,name ((,(first args) lexer) ,@(rest args))
-     (with-slots (data index line-num
-                  column finished
-                  file-len tokens) ,(first args)
+     (with-slots (column data index file-len finished line-num tokens)
+         ,(first args)
        ,@body)))
 
 (define-lex-method reset-lexer (lexer)
@@ -91,19 +89,18 @@
 (define-lex-method push-token (lexer tok)
   (vector-push-extend tok tokens))
 
-
-(define-lex-method read-number (lexer))
+(define-lex-method read-number (L)
+  (multiple-value-bind (num end-index) (parse-integer data :start index :junk-allowed t)
+    (push-token L `(num ,num))
+    (advance L (- end-index index))))
 
 (define-lex-method read-variable (L)
-  (loop for c = (peek L)
+  (loop for c = (peek l)
         with start = index
-        while (or (alpha? c)
-                  (digit? c)
-                  (white-space? c)) do
-                    (advance L)
-        finally
-           (let ((ident (trim-ident (subseq data start (1+ index)))))
-             (push-token L `(ident ,ident)))))
+        while (or (alpha? c) (digit? c) (white-space? c))
+        do (advance l)
+        finally (let ((ident (trim-ident (subseq data start (1+ index)))))
+                  (push-token l `(ident ,ident)))))
 
 (define-lex-method read-keyword (L)
   (let* ((next (position *strop-char* data :start (1+ index)))
@@ -134,10 +131,11 @@
 
 ;;;; The following functions are just character predicates
 ;;;; for the lexer along with some utility functions
+;;; [a-zA-Z]
 (defun alpha? (char)
   (alpha-char-p char))
 
-;; [0-9]
+;;; [0-9]
 (defun digit? (char)
   (digit-char-p char 10))
 
@@ -254,45 +252,3 @@
   (string-trim '(#\NewLine
                  #\Space
                  #\Tab) ident))
-
-;;; Types of Tokens
-;;; '(ident ...)
-;;; '(keyword ...)
-;;;
-;;;
-;;; Punctuation
-;;; , => 'comma
-;;; ";" => 'semi-colon
-;;; . => 'dot
-;;;
-;;; Operators
-;;; + => 'add
-;;; * => 'mult
-;;; - => 'sub
-;;; / => 'div
-;;; ^ => 'pow
-;;;
-;;; & => 'and
-;;; | => 'or
-;;;
-;;;
-;;; => 'more-than
-;;; >= => more-than-eq
-;;;
-;;; < => 'less-than
-;;; <= => 'less-than-eq
-;;;
-;;; = => 'eq
-;;; ~= => 'neq
-;;; ~ => 'not
-;;;
-;;; Brackets
-;;; 'open_paren
-;;; 'close_paren
-;;; 'open_string
-;;; 'close_string
-;;; 'open_block => _begin_
-;;; 'close_block => _end_
-;; [A-Za-z]
-
-(defvar *lexer* (make-lexer (read-file-into-string *file-name*)))
