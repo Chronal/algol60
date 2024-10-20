@@ -69,18 +69,15 @@
 
 (defmethod read-variable ((L lexer))
   (with-slots (data index) L
-    (flet ((read-while-valid-name ()
-             (loop for c = (peek L)
-                   with start = index
-                   while (or (alpha? c)
-                             (digit? c)
-                             (white-space? c)) do
-                               (advance L)
-                   finally
-                      (return (list start (1+ index))))))
-      (destructuring-bind (start end) (read-while-valid-name)
-        (let ((ident (trim-ident (subseq data start end))))
-          (push-token L `(ident ,ident)))))))
+    (loop for c = (peek L)
+          with start = index
+          while (or (alpha? c)
+                    (digit? c)
+                    (white-space? c)) do
+                      (advance L)
+          finally
+             (let ((ident (trim-ident (subseq data start (1+ index)))))
+               (push-token L `(ident ,ident))))))
 
 (defmethod read-keyword ((L lexer))
   (with-slots (data index line-num column) L
