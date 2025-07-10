@@ -1,0 +1,27 @@
+begin
+    procedure partition(A, M, N, I, J);
+        value M, N; array A; integer M,N,I,J;
+    comment TODO
+    begin real X; integer F;
+       F := random(M,N); X := A[F];
+       I := M; J:= N;
+    end
+    end partition
+
+    procedure quicksort(A,M,N);
+        value M,N; array A; integer M,N;
+    comment Quicksort is a very fast and convenient method of
+    sorting an array in the random-access store of a computer. The
+    entire contents of the store may be sorted, since no extra space is
+    required. The average number of comparisons made is 2(M-N)ln
+    (N-M), and the average number of exchanges is one sixth this
+    amount. Suitable refinements of this method will be desirable
+    for its implementation on any actual computer;
+    begin integer I,J;
+       if M < N then begin
+          partition (A, M, N, I, J);
+          quicksort(A,M,J);
+          quicksort(A,I,N);
+       end
+    end quicksort
+end
