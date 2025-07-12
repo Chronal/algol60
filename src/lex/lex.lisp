@@ -153,8 +153,11 @@
           (otherwise (add-token lex keyword)))
         (add-token lex `(ident ,ident))))))
 
-;;; TODO
-(defmethod scan-end-comment ((lex lexer)))
+;;; TODO This just does till \n for now
+(defmethod scan-end-comment ((lex lexer))
+  (adv-while lex (lambda () (char/= (peek lex) #\Newline)))
+  (advance lex) ; Consume new line
+  (incf (slot-value lex 'line-num)))
 
 (defmethod scan-comment ((lex lexer))
   (loop
