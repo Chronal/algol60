@@ -149,7 +149,7 @@
           (comment (scan-comment lex))
           (end (progn
                  (scan-end-comment lex)
-                 'end))
+                 (add-token lex keyword)))
           (otherwise (add-token lex keyword)))
         (add-token lex `(ident ,ident))))))
 
