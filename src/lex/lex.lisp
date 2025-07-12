@@ -125,6 +125,8 @@
          ((alpha? c) (scan-ident lex))
          ((digit? c) (scan-number lex)))))))
 
+;;; TODO: Add support for nested string with ` for open string
+;;; and ' for close string
 (defmethod scan-string ((lex lexer))
   (loop while (char/= (peek lex) #\') do
     (advance lex))
@@ -151,6 +153,7 @@
           (otherwise (add-token lex keyword)))
         (add-token lex `(ident ,ident))))))
 
+;;; TODO
 (defmethod scan-end-comment ((lex lexer)))
 
 (defmethod scan-comment ((lex lexer))
@@ -164,16 +167,40 @@
   ;; Consume the ;
   (advance lex))
 
-(defmethod scan-number ((lex lexer)
-                        &key (sign nil) (dot nil) (exp nil))
+;;; TODO extend to handle spaces inside integer
+;;; like components
+(defmethod scan-number ((lex lexer))
+  (adv-while lex (lambda () (digit? (peek lex))))
+  (if (match lex #\.)
+      (progn
+        (advance lex)
+        (adv-while lex (lambda () (digit? (peek lex))))
 
+        (when (match lex #\e)
+          (advance lex)
+          (when (sign? (peek lex))
+            (advance lex))
+          (adv-while lex (lambda () (digit? (peek lex)))))
 
-  )
+        (with-accessors ((index lex-index)
+                         (src lex-src)
+                         (tok-start lex-tok-start)) lex
+          (add-token lex
+                     `(real
+                       ,(parse-float
+                         (subseq index tok-start index))))))
 
-(defmethod scan-integer ((lex lexer))
-  (loop
-    while (digit? (peek lex)) do
-      (advance lex)))
+      (with-accessors ((index lex-index)
+                       (src lex-src)
+                       (tok-start lex-tok-start)) lex
+        (add-token lex
+                   `(integer
+                     ,(parse-integer
+                       (subseq src tok-start index)))))))
+
+(defmethod adv-while ((lex lexer) pred)
+  (loop while (funcall pred) do
+    (advance lex)))
 
 (defmethod scan-tokens ((lex lexer))
   (lex-reset lex)

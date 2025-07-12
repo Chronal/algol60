@@ -15,6 +15,10 @@
 (defun alnum? (c)
   (or (alpha? c) (digit? c)))
 
+(defun sign? (c)
+  (or (char= c #\+)
+      (char= c #\-)))
+
 ;;; Keyword
 (defun make-keywords-ht ()
   (let ((keywords (make-hash-table :test 'equal)))
@@ -58,6 +62,4 @@
 
 (defun keyword? (ident)
   (multiple-value-bind (value present) (gethash ident *keywords*)
-    (if present
-        value
-        nil)))
+    (when present value)))
