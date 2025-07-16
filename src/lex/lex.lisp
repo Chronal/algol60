@@ -191,7 +191,7 @@
           (add-token lex
                      `(real
                        ,(parse-float
-                         (subseq index tok-start index))))))
+                         (subseq src tok-start index))))))
 
       (with-accessors ((index lex-index)
                        (src lex-src)
