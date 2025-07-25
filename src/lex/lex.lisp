@@ -216,6 +216,9 @@
   (let ((lex (make-lexer src)))
     (scan-tokens lex)))
 
+(defun tokenise (src)
+  (tokenise-string src))
+
 (defun tokenise-file (file-path)
   (alex:when-let* ((fpath (probe-file file-path))
                    (fdata (alex:read-file-into-string fpath)))
