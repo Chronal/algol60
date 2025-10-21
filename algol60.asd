@@ -10,13 +10,11 @@
   :components ((:file package)
                (:module lex
                 :serial t
-                :components ((:file package)
-                             (:file utils)
+                :components ((:file utils)
                              (:file defs)
                              (:file lex)))
                (:module parser
                 :serial t
-                :components ((:file package)
-                             (:file expr)
+                :components ((:file expr)
                              (:file parser)))
                (:file algol60)))
