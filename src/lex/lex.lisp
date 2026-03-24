@@ -127,19 +127,15 @@
 
 (defmethod scan-string ((lex lexer))
   (loop with in-string = 1
-        for next-char = (peek lex)
         while (>= in-string 1)
+        for next-char = (peek lex) then (advance lex)
 
         when (char= next-char #\`) do
           (incf in-string)
         end
         when (char= next-char #\') do
           (decf in-string)
-        end
-
-        do 
-           (advance lex))
-  
+        end)
 
   (add-token lex `(string ,(subseq (lex-src lex)
                                    (1+ (lex-tok-start lex))
