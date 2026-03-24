@@ -120,22 +120,26 @@
       (#\[ (add-token lex 'open-subscript))
       (#\] (add-token lex 'close-subscript))
       (#\` (scan-string lex))
-      (otherwise
+      (t
        (cond
          ((alpha? c) (scan-ident lex))
          ((digit? c) (scan-number lex)))))))
 
-;;; TODO: Add support for nested string with ` for open string
-;;; and ' for close string
 (defmethod scan-string ((lex lexer))
-  (loop while (char/= (peek lex) #\') do
-    (advance lex))
-  (advance lex)
-  (with-accessors ((index lex-index)
-                   (src lex-src)
-                   (tok-start lex-tok-start)) lex
+  (loop with in-string = 1
+        for next-char = (peek lex) then (advance lex)
+        while (>= in-string 1)
 
-    (add-token lex `(string ,(subseq src (1+ tok-start) index)))))
+        when (char= next-char #\`) do
+          (incf in-string)
+        end
+        when (char= next-char #\') do
+          (decf in-string) end)
+  (advance lex)
+
+  (add-token lex `(string ,(subseq (lex-src lex)
+                                   (1+ (lex-tok-start lex))
+                                   (lex-index lex)))))
 
 (defmethod scan-ident ((lex lexer))
   (loop while (alnum? (peek lex)) do
