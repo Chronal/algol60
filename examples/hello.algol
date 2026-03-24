@@ -1,0 +1,4 @@
+begin integer stdin;
+    stdin := 1;
+    outstring(stdin, `Hello, `World!'');
+end

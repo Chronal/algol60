@@ -1,0 +1,8 @@
+procedure Innerproduct(a,b) Order: (k,p) Result: (y); value k;
+integer k,p; real y,a,b;
+begin real s;
+    s := 0;
+    for p := 1 step 1 until k do s:= s + a * b;
+    y := s;
+end Innerproduct
+        
