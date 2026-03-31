@@ -4,7 +4,10 @@
 ;;;; Ideally later it can be configurable
 ;;;; to support different strop chars
 (defclass lexer ()
-  ((line-num :initform 1)
+  ((line-num :initform 1
+             :accessor lex-line)
+   (col-num :initform 0
+            :accessor lex-col)
    (start-tok
     :accessor lex-tok-start
     :initform 0)
@@ -28,13 +31,16 @@
 
 (defmethod print-object ((L lexer) stream)
   (print-unreadable-object (L stream :type t :identity t)
-    (with-slots (line-num index finished) L
-      (format stream "Line #~a, index ~a, finished? ~a" line-num index finished))))
+    (with-slots (line-num col-num index finished) L
+      (format stream "Lexer at ~a:~a, index ~a, finished? ~a" line-num col-num index finished))))
 
 (defmethod lex-reset ((lex lexer))
-  (with-slots (line-num start-tok index
+  (with-slots (line-num
+               col-num
+               start-tok index
                finished tokens) lex
     (setf line-num 1)
+    (setf col-num 0)
     (setf start-tok 0)
     (setf index 0)
     (setf finished nil)
@@ -45,19 +51,19 @@
     (>= (+ offset index) src-len)))
 
 (defmethod advance ((lex lexer))
-  (let ((c (current lex)))
+  (let ((c (peek lex)))
     (incf (lex-index lex))
+    (case c
+      (#\Newline (progn
+                   (incf (lex-line lex))
+                   (setf (lex-col lex) 0)))
+      (otherwise (incf (lex-col lex))))
     c))
-
-(defmethod current ((lex lexer))
-  (with-accessors ((src lex-src)
-                   (index lex-index)) lex
-    (aref src index)))
 
 (defmethod match ((lex lexer) c)
   (cond
     ((at-end? lex) nil)
-    ((char/= c (current lex)) nil)
+    ((char/= c (peek lex)) nil)
     (t (incf (lex-index lex))
        t)))
 
@@ -79,10 +85,13 @@
   (peek-ahead lex :ahead 1))
 
 (defmethod add-token ((lex lexer) tok)
-  (vector-push-extend tok (slot-value lex 'tokens)))
+  (vector-push-extend tok (slot-value lex 'tokens))
+  tok)
 
 (defmethod scan-token ((lex lexer))
+  (setf (lex-tok-start lex) (lex-index lex))
   (let ((c (advance lex)))
+
     (case c
       ;; Arithmetic
       (#\+ (add-token lex 'add))
@@ -110,10 +119,6 @@
       (#\: (add-token lex (if (match lex #\=) 'becomes 'colon)))
       (#\; (add-token lex 'semi-colon))
 
-      ;; Whitespace
-      ((#\Tab #\Space #\Return) t)
-      (#\Newline (incf (slot-value lex 'line-num)))
-
       ;; Brackets
       (#\( (add-token lex 'open-paren))
       (#\) (add-token lex 'close-paren))
@@ -126,23 +131,20 @@
          ((digit? c) (scan-number lex)))))))
 
 (defmethod scan-string ((lex lexer))
-  (loop with in-string = 1
-        while (>= in-string 1)
-        for next-char = (peek lex) then (advance lex)
-
-        when (char= next-char #\`) do
-          (incf in-string)
-        end
-        when (char= next-char #\') do
-          (decf in-string)
-        end)
+  (iter
+    (with in-string = 1)
+    (while (>= in-string 1))
+    (for next-char first (peek lex) then (advance lex)) 
+    (cond 
+      ((char= next-char #\`) (incf in-string))
+      ((char= next-char #\') (decf in-string))))
 
   (add-token lex `(string ,(subseq (lex-src lex)
                                    (1+ (lex-tok-start lex))
                                    (lex-index lex)))))
 
 (defmethod scan-ident ((lex lexer))
-  (loop while (alnum? (peek lex)) do
+  (iter (while (alnum? (peek lex))) 
     (advance lex))
   (with-accessors ((index lex-index)
                    (src lex-src)
@@ -160,17 +162,13 @@
 ;;; TODO This just does till \n for now
 (defmethod scan-end-comment ((lex lexer))
   (adv-while lex (lambda () (char/= (peek lex) #\Newline)))
-  (advance lex) ; Consume new line
-  (incf (slot-value lex 'line-num)))
+  (advance lex)) ; Consume new line
 
 (defmethod scan-comment ((lex lexer))
-  (loop
-    while (and (not (at-end? lex))
-               (char/= (peek lex) #\;))
-    do
-       (when (char= (peek lex) #\Newline)
-         (incf (slot-value lex 'line-num)))
-       (advance lex))
+  (iter
+    (while (and (not (at-end? lex))
+                (char/= (peek lex) #\;)))
+    (advance lex))
   ;; Consume the ;
   (advance lex))
 
@@ -206,13 +204,13 @@
                        (subseq src tok-start index)))))))
 
 (defmethod adv-while ((lex lexer) pred)
-  (loop while (funcall pred) do
+  (iter
+    (while (funcall pred)) 
     (advance lex)))
 
 (defmethod scan-tokens ((lex lexer))
   (lex-reset lex)
-  (loop while (not (at-end? lex)) do
-    (setf (lex-tok-start lex) (lex-index lex))
+  (iter (while (not (at-end? lex)))
     (scan-token lex))
   (slot-value lex 'tokens))
 

@@ -1,7 +1,7 @@
 ;;;; package.lisp
 
 (defpackage algol60/lex
-  (:use :cl)
+  (:use :cl :iterate)
   (:import-from :alexandria define-constant)
   (:import-from :parse-float parse-float)
   (:local-nicknames (:alex :alexandria))

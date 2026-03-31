@@ -5,7 +5,7 @@
   :license  "Apache-2.0"
   :version "0.0.1"
   :serial t
-  :depends-on (alexandria parse-float)
+  :depends-on (alexandria parse-float iterate)
   :pathname "src"
   :components ((:file package)
                (:module lex
