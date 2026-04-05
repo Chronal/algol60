@@ -18,7 +18,6 @@
          :accessor lex-src
          :initform (error "Source code to be tokenised must be provided"))
    (src-len :reader src-len)
-   (finished :initform nil)
    (tokens
     :initform (make-array +token-buf-init-len+ :fill-pointer 0 :adjustable t)
     :type (vector token))))
@@ -32,19 +31,18 @@
 
 (defmethod print-object ((L lexer) stream)
   (print-unreadable-object (L stream :type t :identity t)
-    (with-slots (line-num col-num index finished) L
-      (format stream "Lexer at ~a:~a, index ~a, finished? ~a" line-num col-num index finished))))
+    (with-slots (line-num col-num index) L
+      (format stream "Lexer at ~a:~a, index ~a" line-num col-num index))))
 
 (defmethod lex-reset ((lex lexer))
   (with-slots (line-num
                col-num
                start-tok index
-               finished tokens) lex
+               tokens) lex
     (setf line-num 1)
     (setf col-num 0)
     (setf start-tok 0)
     (setf index 0)
-    (setf finished nil)
     (setf (fill-pointer tokens) 0)))
 
 (defmethod at-end? ((lex lexer) &key (offset 0))
