@@ -11,7 +11,6 @@
                (:module lex
                 :serial t
                 :components ((:file utils)
-                             (:file defs)
                              (:file lex)))
                (:module parser
                 :serial t

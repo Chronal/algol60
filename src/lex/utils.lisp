@@ -1,8 +1,5 @@
 (in-package :algol60/lex)
 
-(defun strop? (c)
-  (char= c *strop-char*))
-
 ;;; [a-zA-Z]
 (defun alpha? (char)
   (alpha-char-p char))
@@ -63,3 +60,8 @@
 (defun keyword? (ident)
   (multiple-value-bind (value present) (gethash ident *keywords*)
     (when present value)))
+
+;;; Global defs
+(defparameter *keywords* (make-keywords-ht))
+
+(define-constant +token-buf-init-len+ 256 :test '=)
