@@ -16,6 +16,11 @@
   (or (char= c #\+)
       (char= c #\-)))
 
+(defun whitespace? (c)
+  (or (char= c #\Newline)
+      (char= c #\Space)
+      (char= c #\Tab)))
+
 ;;; Global defs
 (define-constant +keywords+
     '(
@@ -43,7 +48,7 @@
 
       ;; declarators
       own
-      Boolean
+      boolean
       integer
       real
       array
@@ -60,7 +65,7 @@
   (let ((keywords (make-hash-table :test 'equal)))
     (iter
       (for sym in +keywords+)
-      (setf (gethash (string sym) keywords) sym))
+      (setf (gethash (string-downcase (string sym)) keywords) sym))
     keywords))
 
 (defparameter *keywords* (make-keywords-ht))

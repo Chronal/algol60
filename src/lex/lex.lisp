@@ -110,6 +110,11 @@
                  (make-token :type 'string
                              :data str))))
 
+(defmethod add-ident-token ((lex lexer) ident)
+  (add-token lex (make-token
+                  :type 'ident
+                  :data (string-trim '(#\Newline #\Space #\Tab) ident))))
+
 (defmethod scan-token ((lex lexer))
   (setf (lex-tok-start lex) (lex-index lex))
   (let ((c (advance lex)))
@@ -167,22 +172,44 @@
                                  (1- (lex-index lex)))))
 
 (defmethod scan-ident ((lex lexer))
-  (iter (while (alnum? (peek lex))) 
-    (advance lex))
-  (with-accessors ((index lex-index)
-                   (src lex-src)
-                   (tok-start lex-tok-start)) lex
-    (let ((ident (subseq src tok-start index)))
-      (alex:if-let (keyword (keyword? ident))
-        (case keyword
-          (comment (scan-comment lex))
-          (end (progn
-                 (scan-end-comment lex)
-                 (add-token lex keyword)))
-          (otherwise (add-token lex keyword)))
+  (let ((ident
+          (make-array 16 :element-type 'character :adjustable t :fill-pointer 0))
+        (src (lex-src lex)))
 
-        (add-token lex (make-token :type 'ident :data ident))))))
+    (vector-push (aref src (1- (lex-index lex))) ident)
+    
+    (iter
+      (with ident-start = (lex-tok-start lex))
+      (with last-whitespace = nil)
 
+      (for c = (peek lex))
+      (for index = (lex-index lex))
+      (while (not (at-end? lex)))
+
+      (cond
+        ((alnum? c) (vector-push-extend c ident))
+        ((whitespace? c)
+         (when-let (keyword
+                    (keyword? (subseq src (or last-whitespace ident-start) index)))
+
+           (unless (null last-whitespace)
+             (decf (fill-pointer ident) (- index last-whitespace))
+             (add-ident-token lex ident))
+           
+           (add-token lex keyword)
+           (leave))
+
+         (setf last-whitespace (1+ index)))
+        (t (finish)))
+
+      (after-each
+       (advance lex))
+
+      (finally
+       (if-let ((keyword (keyword? ident)))
+         (add-token lex keyword)
+         (add-ident-token lex ident))))))
+;;; 
 ;;; TODO This just does till \n for now
 (defmethod scan-end-comment ((lex lexer))
   (iter
