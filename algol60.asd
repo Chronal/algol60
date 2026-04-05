@@ -11,6 +11,7 @@
                (:module lex
                 :serial t
                 :components ((:file utils)
+                             (:file token)
                              (:file lex)))
                (:module parser
                 :serial t

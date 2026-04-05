@@ -16,52 +16,57 @@
   (or (char= c #\+)
       (char= c #\-)))
 
+;;; Global defs
+(define-constant +keywords+
+    '(
+      ;; boolean constants
+      true
+      false
+
+      ;; sequential operators
+      goto
+      if
+      thne
+      else
+      for
+      do
+      
+      ;; seperators
+      step
+      until
+      while
+      comment
+
+      ;; brackets
+      begin
+      end
+
+      ;; declarators
+      own
+      Boolean
+      integer
+      real
+      array
+      switch
+      procedure
+
+      ;; specificator
+      string
+      label
+      value) :test 'equal)
+
 ;;; Keyword
 (defun make-keywords-ht ()
   (let ((keywords (make-hash-table :test 'equal)))
-    ;; boolean constants
-    (setf (gethash "true" keywords) 'true)
-    (setf (gethash "false" keywords) 'false)
-
-    ;; sequential operators
-    (setf (gethash "goto" keywords) 'goto)
-    (setf (gethash "if" keywords) 'if)
-    (setf (gethash "then" keywords) 'then)
-    (setf (gethash "else" keywords) 'else)
-    (setf (gethash "for" keywords) 'for)
-    (setf (gethash "do" keywords) 'do)
-
-    ;; seperators
-    (setf (gethash "step" keywords) 'step)
-    (setf (gethash "until" keywords) 'until)
-    (setf (gethash "while" keywords) 'while)
-    (setf (gethash "comment" keywords) 'comment)
-
-    ;; brackets
-    (setf (gethash "begin" keywords) 'begin)
-    (setf (gethash "end" keywords) 'end)
-
-    ;; declarators
-    (setf (gethash "own" keywords) 'own)
-    (setf (gethash "Boolean" keywords) 'Boolean)
-    (setf (gethash "integer" keywords) 'integer)
-    (setf (gethash "real" keywords) 'real)
-    (setf (gethash "array" keywords) 'array)
-    (setf (gethash "switch" keywords) 'switch)
-    (setf (gethash "procedure" keywords) 'procedure)
-
-    ;; specificator
-    (setf (gethash "string" keywords) 'string)
-    (setf (gethash "label" keywords) 'label)
-    (setf (gethash "value" keywords) 'value)
-
+    (iter
+      (for sym in +keywords+)
+      (setf (gethash (string sym) keywords) sym))
     keywords))
 
-(defun keyword? (ident)
-  (multiple-value-bind (value present) (gethash ident *keywords*)
-    (when present value)))
-
-;;; Global defs
 (defparameter *keywords* (make-keywords-ht))
+
+(defun keyword? (ident)
+  (multiple-value-bind (value present) (gethash ident *keywords-ht*)
+    (when present value)))
 
 (define-constant +token-buf-init-len+ 256 :test '=)

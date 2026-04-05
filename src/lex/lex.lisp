@@ -20,7 +20,8 @@
    (src-len :reader src-len)
    (finished :initform nil)
    (tokens
-    :initform (make-array +token-buf-init-len+ :fill-pointer 0 :adjustable t))))
+    :initform (make-array +token-buf-init-len+ :fill-pointer 0 :adjustable t)
+    :type (vector token))))
 
 (defun make-lexer (source-code)
   (make-instance 'lexer :src source-code))
@@ -92,26 +93,22 @@
   (with-slots (tokens) lex
     (vector-pop tokens)))
 
-(defun token-type (token)
-  (if (listp token) 
-      (first token)
-      token))
-
-(defun token-desc (token)
-  (first (rest token)))
-
 (defmethod add-token ((lex lexer) tok)
-  (vector-push-extend tok (slot-value lex 'tokens))
-  tok)
+  (let ((token (if (symbolp tok)
+                   (simple-token tok)
+                   tok)))
+    (vector-push-extend token (slot-value lex 'tokens))
+    token))
 
 (defmethod add-string-token ((lex lexer) str)
   (if (eql 'string (token-type (last-token lex)))
       (let ((token (pop-token lex)))
         (add-token lex
-                   (list 'string
-                         (concatenate 'string (token-desc token) str))))
+                   (make-token :type 'string
+                               :data (concatenate 'string (token-data token) str))))
       (add-token lex
-                 (list 'string str))))
+                 (make-token :type 'string
+                             :data str))))
 
 (defmethod scan-token ((lex lexer))
   (setf (lex-tok-start lex) (lex-index lex))
@@ -183,7 +180,8 @@
                  (scan-end-comment lex)
                  (add-token lex keyword)))
           (otherwise (add-token lex keyword)))
-        (add-token lex `(ident ,ident))))))
+
+        (add-token lex (make-token :type 'ident :data ident))))))
 
 ;;; TODO This just does till \n for now
 (defmethod scan-end-comment ((lex lexer))
@@ -225,17 +223,18 @@
                          (src lex-src)
                          (tok-start lex-tok-start)) lex
           (add-token lex
-                     `(real
-                       ,(parse-float
-                         (subseq src tok-start index))))))
+                     (make-token :type 'real
+                                 :data (parse-float
+                                        (subseq src tok-start index))))))
 
       (with-accessors ((index lex-index)
                        (src lex-src)
                        (tok-start lex-tok-start)) lex
         (add-token lex
-                   `(integer
-                     ,(parse-integer
-                       (subseq src tok-start index)))))))
+                   (make-token
+                    :type 'integer
+                    :data (parse-integer
+                           (subseq src tok-start index)))))))
 
 (defmethod scan-tokens ((lex lexer))
   (lex-reset lex)
