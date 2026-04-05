@@ -162,7 +162,9 @@
 
 ;;; TODO This just does till \n for now
 (defmethod scan-end-comment ((lex lexer))
-  (adv-while lex (lambda () (char/= (peek lex) #\Newline)))
+  (iter
+    (while (char/= (peek lex) #\Newline))
+    (advance lex))
   (advance lex)) ; Consume new line
 
 (defmethod scan-comment ((lex lexer))
@@ -176,17 +178,23 @@
 ;;; TODO extend to handle spaces inside integer
 ;;; like components
 (defmethod scan-number ((lex lexer))
-  (adv-while lex (lambda () (digit? (peek lex))))
+  (iter
+    (while (digit? (peek lex)))
+    (advance lex))
+  
   (if (match lex #\.)
       (progn
         (advance lex)
-        (adv-while lex (lambda () (digit? (peek lex))))
-
+        (iter
+          (while (digit? (peek lex)))
+          (advance lex))
         (when (match lex #\e)
           (advance lex)
           (when (sign? (peek lex))
-            (advance lex))
-          (adv-while lex (lambda () (digit? (peek lex)))))
+            (advance lex)))
+        (iter
+          (while (digit? (peek lex)))
+          (advance lex))
 
         (with-accessors ((index lex-index)
                          (src lex-src)
@@ -203,11 +211,6 @@
                    `(integer
                      ,(parse-integer
                        (subseq src tok-start index)))))))
-
-(defmethod adv-while ((lex lexer) pred)
-  (iter
-    (while (funcall pred)) 
-    (advance lex)))
 
 (defmethod scan-tokens ((lex lexer))
   (lex-reset lex)
