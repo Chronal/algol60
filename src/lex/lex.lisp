@@ -84,9 +84,34 @@
 (defmethod peek-next ((lex lexer))
   (peek-ahead lex :ahead 1))
 
+(defmethod last-token ((lex lexer))
+  (with-slots (tokens) lex
+    (aref tokens (1- (length tokens)))))
+
+(defmethod pop-token ((lex lexer))
+  (with-slots (tokens) lex
+    (vector-pop tokens)))
+
+(defun token-type (token)
+  (if (listp token) 
+      (first token)
+      token))
+
+(defun token-desc (token)
+  (first (rest token)))
+
 (defmethod add-token ((lex lexer) tok)
   (vector-push-extend tok (slot-value lex 'tokens))
   tok)
+
+(defmethod add-string-token ((lex lexer) str)
+  (if (eql 'string (token-type (last-token lex)))
+      (let ((token (pop-token lex)))
+        (add-token lex
+                   (list 'string
+                         (concatenate 'string (token-desc token) str))))
+      (add-token lex
+                 (list 'string str))))
 
 (defmethod scan-token ((lex lexer))
   (setf (lex-tok-start lex) (lex-index lex))
@@ -140,9 +165,9 @@
       ((char= next-char #\') (decf in-string)))
     (advance lex))
 
-  (add-token lex `(string ,(subseq (lex-src lex)
-                                   (1+ (lex-tok-start lex))
-                                   (lex-index lex)))))
+  (add-string-token lex  (subseq (lex-src lex)
+                                 (1+ (lex-tok-start lex))
+                                 (1- (lex-index lex)))))
 
 (defmethod scan-ident ((lex lexer))
   (iter (while (alnum? (peek lex))) 
