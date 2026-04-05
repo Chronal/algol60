@@ -66,7 +66,7 @@
 (defparameter *keywords* (make-keywords-ht))
 
 (defun keyword? (ident)
-  (multiple-value-bind (value present) (gethash ident *keywords-ht*)
+  (multiple-value-bind (value present) (gethash ident *keywords*)
     (when present value)))
 
 (define-constant +token-buf-init-len+ 256 :test '=)
