@@ -182,7 +182,8 @@
 
       (for c = (peek lex))
       (for index = (lex-index lex))
-      (while (not (at-end? lex)))
+
+      (until (at-end? lex))
 
       (cond
         ((alnum? c) (vector-push-extend c ident))
@@ -200,13 +201,24 @@
          (setf last-whitespace (1+ index)))
         (t (finish)))
 
+
       (after-each
        (advance lex))
 
       (finally
        (if-let ((keyword (keyword? ident)))
          (add-token lex keyword)
-         (add-ident-token lex ident))))))
+         (if-let (keyword 
+                  (keyword? (subseq
+                             src
+                             (or last-whitespace ident-start)
+                             index)))
+           (progn
+             (add-ident-token lex
+                              (subseq src ident-start last-whitespace))
+             (add-token lex keyword))
+
+           (add-ident-token lex ident)))))))
 ;;; 
 ;;; TODO This just does till \n for now
 (defmethod scan-end-comment ((lex lexer))
