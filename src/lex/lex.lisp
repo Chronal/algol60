@@ -247,6 +247,6 @@
     (scan-tokens lex)))
 
 (defun tokenise-file (file-path)
-  (alex:when-let* ((fpath (probe-file file-path))
-                   (fdata (alex:read-file-into-string fpath)))
+  (when-let* ((fpath (probe-file file-path))
+              (fdata (alex:read-file-into-string fpath)))
     (tokenise-string fdata)))

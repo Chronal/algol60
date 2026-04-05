@@ -2,7 +2,14 @@
 
 (defpackage algol60/lex
   (:use :cl :iterate)
-  (:import-from :alexandria define-constant)
+  (:import-from :alexandria
+                conjoin
+                compose
+                disjoin
+                define-constant
+                if-let
+                when-let
+                when-let*)
   (:import-from :parse-float parse-float)
   (:local-nicknames (:alex :alexandria))
   (:export tokenise-string tokenise-file))
