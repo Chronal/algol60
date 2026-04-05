@@ -133,11 +133,12 @@
 (defmethod scan-string ((lex lexer))
   (iter
     (with in-string = 1)
+    (for next-char = (peek lex))
     (while (>= in-string 1))
-    (for next-char first (peek lex) then (advance lex)) 
     (cond 
       ((char= next-char #\`) (incf in-string))
-      ((char= next-char #\') (decf in-string))))
+      ((char= next-char #\') (decf in-string)))
+    (advance lex))
 
   (add-token lex `(string ,(subseq (lex-src lex)
                                    (1+ (lex-tok-start lex))
